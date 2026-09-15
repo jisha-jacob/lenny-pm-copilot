@@ -180,6 +180,14 @@ hosting cost.
     (`st.secrets`), never committed to the repo.
   - Create a dedicated low-privilege Postgres role for the app (not the
     `postgres` superuser).
+  - **Maintenance note:** Streamlit Community Cloud's published outbound
+    IPs are not officially guaranteed and may rotate without notice (per
+    Streamlit's own docs and community reports — allowlisting is not a
+    fully supported Community Cloud feature). If the deployed app suddenly
+    loses DB connectivity with no other change, re-fetch the current IP
+    list from
+    [the Streamlit docs](https://docs.streamlit.io/deploy/streamlit-community-cloud/status)
+    and update the GCE firewall rule for port 5432 accordingly.
 - **Network tier:** provision the VM with **Standard Tier** networking
   rather than GCP's default Premium Tier. Always Free's network egress
   allowance is only 1GB/month under Premium Tier vs. 200GiB/month under
