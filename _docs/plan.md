@@ -54,20 +54,30 @@ Frontmatter fields available per episode: `guest`, `title`, `youtube_url`,
 `video_id`, `publish_date`, `description`, `duration_seconds`, `duration`,
 `view_count`, `channel`.
 
-**Open question to resolve during ingestion task grooming:** transcripts do
-not appear to carry per-line timestamps in the raw markdown — confirm this
-when the ingestion task is implemented. If no timestamps exist, sources will
-link to the episode's `youtube_url` without a timestamp anchor (acceptable
-fallback for v1).
+**Open questions to resolve during ingestion task grooming:**
+
+- Transcripts do not appear to carry per-line timestamps in the raw
+  markdown — confirm this when the ingestion task is implemented. If no
+  timestamps exist, sources will link to the episode's `youtube_url`
+  without a timestamp anchor (acceptable fallback for v1).
+- Before implementing the chunker, open an actual `transcript.md` file to
+  confirm whether the body has parseable speaker labels to split on (the
+  README documents the frontmatter schema but not the body format).
+- Define the fallback for long speaker turns: interview podcasts often
+  have single turns (e.g. a guest monologuing) that run well past 800
+  tokens. State explicitly how the chunker splits an over-long turn —
+  e.g. a secondary token-window split within it — before implementation,
+  not mid-implementation.
 
 ## 6. RAG architecture decisions
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Chunking | By speaker turn / paragraph, ~500-800 tokens per chunk with ~15% overlap | Keeps semantic units intact, avoids splitting mid-thought |
+| Chunking | By speaker turn / paragraph, ~500-800 tokens per chunk, overlap TBD by eval (see section 8) | Keeps semantic units intact, avoids splitting mid-thought |
 | Chunk metadata | guest, episode title, youtube_url, publish_date, chunk_id | Needed to build the Sources list |
-| Embedding model | `sentence-transformers/all-MiniLM-L6-v2` (local, free) | Zero ingestion cost for ~269 transcripts |
+| Embedding model | `nomic-embed-text` (local, free, 8192-token context) | Chosen over MiniLM: MiniLM's 256-token max would silently truncate our 500–800 token chunks, losing content from most chunks. nomic-embed-text's context comfortably covers a full chunk with no truncation, at similar CPU-only feasibility (~0.3GB vs ~0.1GB) |
 | Vector DB | Postgres 16 + `pgvector` extension, self-managed on GCE `e2-micro` (Always Free) | Consolidates vectors + monitoring into one DB, no separate hosting cost |
+| Vector index | None for v1 — exact (brute-force) search | Corpus is small (~5–8K chunks from 269 episodes); exact search answers top-k queries in well under 100ms at this scale and avoids HNSW/IVFFlat build-memory pressure on the 1GB VM. Revisit only if the corpus grows substantially. |
 | Retrieval | Top-k plain vector similarity (k=5–8, tune during QA) via `pgvector` `<->` distance | Simplest working v1; leaves room for hybrid later |
 | Answer LLM | Claude (Anthropic API) | Matches Claude Code tooling already in use |
 | Citation format | Sources list at end of answer: guest, episode title, link | Decided — not inline |
@@ -106,7 +116,7 @@ Added per the LLM Zoomcamp evaluation rubric's "Monitoring" criterion
 (https://github.com/DataTalksClub/llm-zoomcamp/blob/main/project.md).
 
 - **Storage:** same self-managed Postgres 16 instance used for `pgvector`
-  (see section 6 and 12) — a `monitoring` table, not a separate database
+  (see section 6 and 11) — a `monitoring` table, not a separate database
   service. One DB to run and back up.
 - **What gets logged per interaction:** timestamp, question, answer,
   episodes cited, retrieval latency, generation latency, and user
@@ -155,6 +165,11 @@ hosting cost.
 - **Database:** Postgres 16 with the `pgvector` extension enabled
   (`CREATE EXTENSION vector;`), holding both the transcript-chunk
   embeddings table and the `monitoring` table from section 9.
+- **Memory tuning (1GB VM):** lower `shared_buffers` from Postgres defaults
+  to roughly 256MB, and keep `max_connections` low. The Streamlit app
+  should use a small connection pool (e.g. 2–5 connections) rather than
+  opening a new connection per session — on a shared-core, 1GB instance,
+  connection sprawl is a more realistic failure mode than query load.
 - **Network security (important on a public VM):**
   - Do **not** leave Postgres open to `0.0.0.0/0`. Restrict the GCE
     firewall rule for port 5432 to Streamlit Community Cloud's published
