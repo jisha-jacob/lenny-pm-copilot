@@ -159,22 +159,37 @@ Added per the LLM Zoomcamp evaluation rubric's "Monitoring" criterion
 **Goal:** get a working, publicly reachable demo for the portfolio at zero
 hosting cost.
 
-- **VM:** GCE `e2-micro` in an Always Free–eligible region (`us-west1`,
-  `us-central1`, or `us-east1`). Runs Postgres 16 only — no app code, no
-  embedding model, to stay well within the VM's 1 GB RAM.
-- **Database:** Postgres 16 with the `pgvector` extension enabled
-  (`CREATE EXTENSION vector;`), holding both the transcript-chunk
-  embeddings table and the `monitoring` table from section 9.
+- **VM:** reuses the existing `pm-playbook-postgres` GCE `e2-micro` instance
+  (region `us-central1`, not `us-east1` as originally planned — both are
+  Always Free–eligible, so this is a no-cost change), rather than
+  provisioning a new VM. This VM already exists and is shared with another
+  project (`pm-playbook-db`'s GCP project); this project gets a dedicated
+  database and role on it, not a dedicated VM. GCP's Always Free e2-micro
+  allowance is one instance per billing account, so provisioning a second
+  e2-micro on the same billing account would have incurred real cost —
+  reusing the existing instance is what keeps this at $0. Runs Postgres
+  only — no app code, no embedding model, to stay well within the VM's 1 GB
+  RAM.
+- **Database:** a new, dedicated database and low-privilege role on the
+  shared VM's Postgres 16 instance (not reusing the other project's
+  database or role), with the `pgvector` extension enabled
+  (`CREATE EXTENSION vector;`) for that database. Holds both the
+  transcript-chunk embeddings table and the `monitoring` table from
+  section 9.
 - **Memory tuning (1GB VM):** lower `shared_buffers` from Postgres defaults
   to roughly 256MB, and keep `max_connections` low. The Streamlit app
   should use a small connection pool (e.g. 2–5 connections) rather than
   opening a new connection per session — on a shared-core, 1GB instance,
   connection sprawl is a more realistic failure mode than query load.
 - **Network security (important on a public VM):**
-  - Do **not** leave Postgres open to `0.0.0.0/0`. Restrict the GCE
-    firewall rule for port 5432 to Streamlit Community Cloud's published
+  - Do **not** leave Postgres open to `0.0.0.0/0`. Update the GCE firewall
+    rule for port 5432 to add Streamlit Community Cloud's published
     outbound IP ranges (check current ranges at deploy time) plus your own
-    IP for admin access.
+    IP for admin access — additively, without removing whatever source
+    ranges the other project sharing this VM already depends on. (As of
+    grooming, the existing rule is open to `0.0.0.0/0`; tightening that for
+    the other project's traffic is out of scope here — see the issue's Out
+    of scope section.)
   - Require SSL for the Postgres connection (`sslmode=require`) and use a
     strong password stored only in Streamlit Cloud's secrets manager
     (`st.secrets`), never committed to the repo.
@@ -188,12 +203,16 @@ hosting cost.
     list from
     [the Streamlit docs](https://docs.streamlit.io/deploy/streamlit-community-cloud/status)
     and update the GCE firewall rule for port 5432 accordingly.
-- **Network tier:** provision the VM with **Standard Tier** networking
-  rather than GCP's default Premium Tier. Always Free's network egress
-  allowance is only 1GB/month under Premium Tier vs. 200GiB/month under
-  Standard Tier, and every Postgres query result returned to Streamlit
-  Community Cloud counts as egress — 1GB/month is trivial to exceed even
-  under light traffic, so this matters for staying within Always Free.
+- **Network tier:** ensure the VM's network tier is **Standard Tier**, not
+  GCP's default Premium Tier (check the existing VM's current setting and
+  change it if needed). Always Free's network egress allowance is only
+  1GB/month under Premium Tier vs. 200GiB/month under Standard Tier, and
+  every Postgres query result returned to Streamlit Community Cloud counts
+  as egress — 1GB/month is trivial to exceed even under light traffic. This
+  now matters more than originally scoped: the VM's egress allowance is
+  shared with the other project already running on it (same billing
+  account), so this project's traffic isn't the only thing drawing down
+  that allowance.
 - **App:** deploy the Streamlit app to Streamlit Community Cloud, pointed
   at the VM's external IP via `st.secrets`. Community Cloud gives more RAM
   headroom than the `e2-micro`, which matters since the embedding model
@@ -205,7 +224,10 @@ hosting cost.
 - **Known trade-off:** `e2-micro` is a shared-core, 1 GB RAM instance —
   fine for a portfolio-scale demo with light traffic, but not sized for
   production load. Worth stating explicitly in the README so reviewers
-  don't mistake it for a production claim.
+  don't mistake it for a production claim. Now sharper since the VM is
+  shared with another project: this project's Postgres memory tuning (see
+  above) has to coexist with whatever the other project's workload needs,
+  not just this project's own light traffic.
 
 ## 12. Non-functional notes
 
