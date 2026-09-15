@@ -4,9 +4,10 @@
 
 A RAG-based chat app that answers product management questions by retrieving
 and synthesizing relevant passages from Lenny's Podcast transcripts
-(269 episodes, interviews with product/growth leaders). It should feel like
-asking a well-read PM friend who's listened to every episode and can point
-you to exactly where an idea came from.
+(303 episodes as of grooming issue #3 — corrected from an earlier estimate
+of 269; interviews with product/growth leaders). It should feel like asking
+a well-read PM friend who's listened to every episode and can point you to
+exactly where an idea came from.
 
 ## 2. Users
 
@@ -54,30 +55,43 @@ Frontmatter fields available per episode: `guest`, `title`, `youtube_url`,
 `video_id`, `publish_date`, `description`, `duration_seconds`, `duration`,
 `view_count`, `channel`.
 
-**Open questions to resolve during ingestion task grooming:**
+**Open questions — resolved while grooming issue #3, by inspecting real
+transcript files (`ada-chen-rekhi` — a short clip, and `shreyas-doshi` — a
+full ~91-minute episode):**
 
-- Transcripts do not appear to carry per-line timestamps in the raw
-  markdown — confirm this when the ingestion task is implemented. If no
-  timestamps exist, sources will link to the episode's `youtube_url`
-  without a timestamp anchor (acceptable fallback for v1).
-- Before implementing the chunker, open an actual `transcript.md` file to
-  confirm whether the body has parseable speaker labels to split on (the
-  README documents the frontmatter schema but not the body format).
-- Define the fallback for long speaker turns: interview podcasts often
-  have single turns (e.g. a guest monologuing) that run well past 800
-  tokens. State explicitly how the chunker splits an over-long turn —
-  e.g. a secondary token-window split within it — before implementation,
-  not mid-implementation.
+- **Timestamps DO exist per-turn**, contrary to the earlier assumption.
+  The body format is: a new speaker turn starts with a line
+  `Speaker Name (HH:MM:SS):`, and a same-speaker continuation paragraph
+  (the source pre-splits long monologues into multiple paragraph blocks)
+  starts with a bare `(HH:MM:SS):` line, no name. This means sources
+  (task 6) **can** link to a real timestamp anchor
+  (`{youtube_url}&t={seconds}s`) for every chunk, not just the plain
+  episode URL — better than the fallback originally planned for.
+- **Speaker labels are reliably parseable** via the pattern above — a
+  regex like `^(?:(?P<speaker>[^\n(][^\n]*?) )?\((?P<ts>\d{2}:\d{2}:\d{2})\):$`
+  on its own line marks the start of each paragraph block, whether a new
+  speaker or a continuation.
+- **Long speaker turns:** in practice, the source markdown already
+  pre-splits long monologues into multiple paragraph blocks (each
+  roughly 100–250 words / ~130–350 tokens in the samples checked), so the
+  natural unit to chunk on is the **paragraph block**, not the full
+  speaker turn. Reaching the 500–800 token target means **grouping
+  several consecutive paragraph blocks** (usually spanning more than one
+  speaker turn) rather than splitting a single block. Fallback for the
+  rare single paragraph block that alone exceeds ~800 tokens: split it at
+  sentence boundaries as a secondary pass — not expected to trigger often
+  based on the samples checked, but the chunker must not silently fail if
+  it does.
 
 ## 6. RAG architecture decisions
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Chunking | By speaker turn / paragraph, ~500-800 tokens per chunk, overlap TBD by eval (see section 8) | Keeps semantic units intact, avoids splitting mid-thought |
-| Chunk metadata | guest, episode title, youtube_url, publish_date, chunk_id | Needed to build the Sources list |
+| Chunking | Group consecutive paragraph blocks (see section 5) to ~500-800 tokens per chunk, overlap TBD by eval (see section 8) | Keeps semantic units intact, avoids splitting mid-thought |
+| Chunk metadata | guest, episode title, youtube_url, video_id, publish_date, chunk_id, start_timestamp (seconds, from the chunk's first paragraph block) | Needed to build the Sources list, now with a real timestamp anchor (see section 5) |
 | Embedding model | `nomic-embed-text` (local, free, 8192-token context) | Chosen over MiniLM: MiniLM's 256-token max would silently truncate our 500–800 token chunks, losing content from most chunks. nomic-embed-text's context comfortably covers a full chunk with no truncation, at similar CPU-only feasibility (~0.3GB vs ~0.1GB) |
 | Vector DB | Postgres 16 + `pgvector` extension, self-managed on GCE `e2-micro` (Always Free) | Consolidates vectors + monitoring into one DB, no separate hosting cost |
-| Vector index | None for v1 — exact (brute-force) search | Corpus is small (~5–8K chunks from 269 episodes); exact search answers top-k queries in well under 100ms at this scale and avoids HNSW/IVFFlat build-memory pressure on the 1GB VM. Revisit only if the corpus grows substantially. |
+| Vector index | None for v1 — exact (brute-force) search | Corpus is small (~5–8K chunks from 303 episodes); exact search answers top-k queries in well under 100ms at this scale and avoids HNSW/IVFFlat build-memory pressure on the 1GB VM. Revisit only if the corpus grows substantially. |
 | Retrieval | Top-k plain vector similarity (k=5–8, tune during QA) via `pgvector` `<->` distance | Simplest working v1; leaves room for hybrid later |
 | Answer LLM | Claude (Anthropic API) | Matches Claude Code tooling already in use |
 | Citation format | Sources list at end of answer: guest, episode title, link | Decided — not inline |
