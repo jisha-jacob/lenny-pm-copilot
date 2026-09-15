@@ -181,15 +181,23 @@ hosting cost.
   should use a small connection pool (e.g. 2–5 connections) rather than
   opening a new connection per session — on a shared-core, 1GB instance,
   connection sprawl is a more realistic failure mode than query load.
-- **Network security (important on a public VM):**
-  - Do **not** leave Postgres open to `0.0.0.0/0`. Update the GCE firewall
-    rule for port 5432 to add Streamlit Community Cloud's published
-    outbound IP ranges (check current ranges at deploy time) plus your own
-    IP for admin access — additively, without removing whatever source
-    ranges the other project sharing this VM already depends on. (As of
-    grooming, the existing rule is open to `0.0.0.0/0`; tightening that for
-    the other project's traffic is out of scope here — see the issue's Out
-    of scope section.)
+- **Network security (important on a public VM) — currently NOT achieved,
+  see honest caveat below:**
+  - A GCE firewall rule (`allow-postgres-lenny-pm-copilot`) was added for
+    port 5432, scoped to Streamlit Community Cloud's published outbound IP
+    ranges plus the admin's own IP.
+  - **This does not actually restrict access.** The VM already has a
+    pre-existing rule (`allow-postgres`) allowing `0.0.0.0/0` on port 5432,
+    which this project's other database sits behind too. GCP firewall
+    allow-rules are additive/permissive — a narrower rule never overrides a
+    broader one. As long as `allow-postgres` (`0.0.0.0/0`) exists, **this
+    project's Postgres database is reachable from anywhere on the
+    internet**, not just from Streamlit/admin, regardless of the new rule.
+    Tightening or removing `allow-postgres` is out of scope for issue #2 —
+    it risks breaking the other project sharing this VM, and needs its own
+    investigation first (see the follow-up issue filed for that). Don't
+    read this section as "access is restricted" until that follow-up
+    lands.
   - Require SSL for the Postgres connection (`sslmode=require`) and use a
     strong password stored only in Streamlit Cloud's secrets manager
     (`st.secrets`), never committed to the repo.
@@ -203,16 +211,18 @@ hosting cost.
     list from
     [the Streamlit docs](https://docs.streamlit.io/deploy/streamlit-community-cloud/status)
     and update the GCE firewall rule for port 5432 accordingly.
-- **Network tier:** ensure the VM's network tier is **Standard Tier**, not
-  GCP's default Premium Tier (check the existing VM's current setting and
-  change it if needed). Always Free's network egress allowance is only
-  1GB/month under Premium Tier vs. 200GiB/month under Standard Tier, and
-  every Postgres query result returned to Streamlit Community Cloud counts
-  as egress — 1GB/month is trivial to exceed even under light traffic. This
-  now matters more than originally scoped: the VM's egress allowance is
-  shared with the other project already running on it (same billing
-  account), so this project's traffic isn't the only thing drawing down
-  that allowance.
+- **Network tier:** the VM stays on **Premium Tier** (its current setting)
+  rather than switching to Standard Tier as originally planned. Switching
+  requires removing and re-adding the external access config, which would
+  likely change the VM's external IP (`34.135.89.12`, currently ephemeral,
+  not a reserved static address) — since the other project sharing this VM
+  almost certainly connects using that hardcoded IP, changing it risks
+  breaking that project's connectivity. Always Free's network egress
+  allowance is only 1GB/month under Premium Tier (vs. 200GiB/month under
+  Standard), shared across both projects on this VM — **known risk to
+  monitor**, not resolved. If egress usage approaches 1GB/month, revisit
+  with a proper reserved static IP (so the tier switch can happen without
+  an unplanned IP change) rather than switching tiers under time pressure.
 - **App:** deploy the Streamlit app to Streamlit Community Cloud, pointed
   at the VM's external IP via `st.secrets`. Community Cloud gives more RAM
   headroom than the `e2-micro`, which matters since the embedding model
