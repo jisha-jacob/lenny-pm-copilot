@@ -1,2 +1,7 @@
 streamlit
 pytest
+fastembed
+psycopg2-binary
+pgvector
+python-frontmatter
+tiktoken
