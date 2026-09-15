@@ -2,21 +2,13 @@
 
 ## Commands
 
-No dependency manifest (`pyproject.toml`, `requirements.txt`, etc.) exists in
-this repo yet — the project scaffold is tracked as
-[issue #1](https://github.com/jisha-jacob/lenny-pm-copilot/issues/1) and
-hasn't landed. Once it does, this section must be updated with the real
-commands. Expected shape, per `_docs/plan.md`, once scaffolded:
+All commands assume PowerShell from the repo root, with a `.venv` virtual
+environment (see `README.md` for setup).
 
-- Install dependencies: TBD (likely `pip install -r requirements.txt`, to be
-  confirmed once issue #1 adds the actual file)
-- Run the app locally: TBD (likely `streamlit run app.py`)
-- Run the whole test suite: TBD (likely `pytest`)
-- Run a single test file: TBD (likely `pytest path/to/test_file.py`)
-
-Do not guess at these commands elsewhere in the codebase or in issue work —
-check this file first, and if it's still marked TBD, check the repo directly
-for what the scaffold task actually produced.
+- Install dependencies: `pip install -r requirements.txt`
+- Run the app locally: `streamlit run app.py`
+- Run the whole test suite: `pytest`
+- Run a single test file: `pytest tests\test_app.py` (substitute the file)
 
 ## Rules
 
