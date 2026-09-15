@@ -180,6 +180,12 @@ hosting cost.
     (`st.secrets`), never committed to the repo.
   - Create a dedicated low-privilege Postgres role for the app (not the
     `postgres` superuser).
+- **Network tier:** provision the VM with **Standard Tier** networking
+  rather than GCP's default Premium Tier. Always Free's network egress
+  allowance is only 1GB/month under Premium Tier vs. 200GiB/month under
+  Standard Tier, and every Postgres query result returned to Streamlit
+  Community Cloud counts as egress — 1GB/month is trivial to exceed even
+  under light traffic, so this matters for staying within Always Free.
 - **App:** deploy the Streamlit app to Streamlit Community Cloud, pointed
   at the VM's external IP via `st.secrets`. Community Cloud gives more RAM
   headroom than the `e2-micro`, which matters since the embedding model
