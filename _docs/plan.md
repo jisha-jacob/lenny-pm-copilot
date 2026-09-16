@@ -82,6 +82,83 @@ full ~91-minute episode):**
   sentence boundaries as a secondary pass — not expected to trigger often
   based on the samples checked, but the chunker must not silently fail if
   it does.
+- **Non-episode items are intentionally excluded.** Not every folder under
+  `episodes/` is a guest interview — e.g. `teaser_2021` is a show trailer
+  and lacks `title`/`youtube_url`/`video_id`/`publish_date`. `ingest.py`
+  correctly `SKIP`s it via the required-field check; this is expected
+  exclusion, not a defect to fix.
+- **Corrupted-frontmatter exclusions (guest/title mismatch).** Discovered
+  during issue #3 QA reconciliation: some source folders have a `guest`
+  field whose name does not appear anywhere in that same file's `title`
+  field. In every verified case, the folder's transcript *body* holds
+  real, correct content for its stated `guest`, but `title`/`video_id`/
+  `youtube_url`/`description` were copy-pasted from an unrelated episode
+  (most often a same-`video_id` sibling folder holding the real,
+  correctly-labeled episode). Ingesting these rows would attribute a real
+  quote to the right guest but link to the wrong YouTube video — the
+  citation is not verifiable. Any previously-ingested chunks for these
+  folders have been deleted from `chunks`, and they are excluded from
+  future ingestion runs (not a `chunking.py`/`ingest.py` bug — the source
+  data itself is corrupted). Reason recorded per folder:
+  **"guest/title mismatch, corrupted upstream frontmatter, citation not
+  verifiable."**
+  - `alexander-embiricos`, `interview-q-compilation`, `manik-gupta`,
+    `archie-abrams`, `benjamin-mann`, `gibson-biddle`, `brandon-chu`,
+    `chip-conley`, `jackie-bavaro`, `david-placek`, `gaurav-misra`,
+    `julian-shapiro`, `kim-scott`, `laura-modi`, `ray-cao`,
+    `matt-mullenweg`, `nikita-bier`, `ryan-hoover`, `sanchan-saxena`,
+    `melissa`
+  - Known side effect: because `chunk_id` is keyed by `video_id` + chunk
+    index (not guest), several of the *correctly*-labeled sibling
+    episodes were partially overwritten by these bad runs before cleanup
+    and needed a full re-ingest to restore completeness — done for
+    `marty-cagan`, `anneka-gupta`, `matt-lemay`, `benjamin-lauzier`,
+    `claire-vo` (all partially overwritten) and `lauryn-isford` (paired
+    with `gaurav-misra`, fully overwritten to zero chunks). `melissa`'s
+    sibling `melissa-tan` was never actually overwritten in practice (the
+    correct content already won every ingestion run), so `melissa` needed
+    no chunk deletion — it's excluded purely to prevent a future re-run
+    from accidentally clobbering the correct `melissa-tan` content.
+    `sanchan-saxena`'s real content had no correctly-named sibling folder
+    to fall back on, so that coverage is lost entirely pending upstream
+    correction — the only one of these 20 where nothing to date restores
+    the real content.
+  - `melissa`'s failure mode differs from the other 19: its `guest` field
+    (`"Melissa"`) is a bare first name, generic enough to coincidentally
+    match the title's `"Melissa Tan"` on a substring check — the original
+    guest/title-mismatch screen missed it for that reason. Its actual
+    transcript body opens `"Melissa Perri (00:00):"`, a different real
+    person entirely. A corpus-wide check for other bare-first-name/
+    generic `guest` fields (`boz`, `failure`, `gergely`, `vijay`,
+    `hamelshreya`, `yamashata`) found no further cases — all verified
+    self-consistent against their transcript body's opening speaker line.
+  - **Two pairs are same-guest but genuinely different recordings, not
+    duplicates:** `elena-verna-20`/`elena-verna-30` and
+    `jake-knapp-john-zeratsky`/`jake-knapp-john-zeratsky-20` share a
+    `video_id` with visibly different transcript bodies (confirmed via
+    text diff, not just metadata) — two distinct real sessions with the
+    same guest(s), not a scrape duplicate. Left as-is, the shared
+    `video_id` would let one silently overwrite the other via `chunk_id`
+    collision. Fixed by ingesting the previously-losing side
+    (`elena-verna-20`, `jake-knapp-john-zeratsky`) at
+    `--overlap-pct 0.15` instead of the corpus-standard `0.0`, so its
+    `chunk_id`s (which embed the overlap value) no longer collide with
+    its sibling's — both sides now coexist in `chunks` under their own
+    correct `guest` label. Not a general pattern to repeat casually: this
+    works because `0.15` is otherwise unused across the rest of the
+    corpus, so it's borrowed here purely as a collision-avoidance value,
+    not a real chunking-quality choice for these two episodes.
+  - **Checked and left as-is — harmless duplicate-scrape pairs (no action
+    needed):** `dr-fei-fei-li`/`fei-fei`, `ethan-evans`/`ethan-evans-20`,
+    `hamel-husain-shreya-shankar`/`hamelshreya`,
+    `nicole-forsgren`/`nicole-forsgren-20`, `tomer-cohen`/`tomer-cohen-20`,
+    `wes-kao`/`wes-kao-20`, `yamashata`/`yuhki-yamashata`. Each pair's
+    transcript body was diffed directly (not just metadata) and confirmed
+    byte-identical or near-identical — genuinely the same recording
+    scraped under two folder names, not a case of distinct content being
+    silently collapsed. Only one side survives ingestion (`chunk_id`
+    collision), which is fine here since the losing side has nothing
+    unique to lose.
 
 ## 6. RAG architecture decisions
 

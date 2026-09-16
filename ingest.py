@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import json
 import subprocess
 import sys
 from datetime import date
@@ -24,6 +25,7 @@ from embeddings import embed_documents
 REPO_URL = "https://github.com/ChatPRD/lennys-podcast-transcripts.git"
 DEFAULT_REPO_DIR = Path(".cache/lennys-podcast-transcripts")
 REQUIRED_FIELDS = ["guest", "title", "youtube_url", "video_id", "publish_date"]
+KNOWN_ISSUES_PATH = Path(__file__).parent / "_docs" / "known_issues.json"
 
 UPSERT_SQL = """
     INSERT INTO chunks (
@@ -41,6 +43,17 @@ UPSERT_SQL = """
         chunk_text = EXCLUDED.chunk_text,
         embedding = EXCLUDED.embedding;
 """
+
+
+def load_known_issues(path: Path = KNOWN_ISSUES_PATH) -> tuple[dict[str, str], dict[str, float]]:
+    """Folder-name exclusions and per-folder overlap-pct overrides found
+    during issue #3 QA (see _docs/plan.md section 5) -- checked into git so
+    a future run can't silently reintroduce a bug already found and fixed.
+    """
+    if not path.exists():
+        return {}, {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data.get("excluded_folders", {}), data.get("overlap_overrides", {})
 
 
 def sync_repo(repo_dir: Path) -> None:
@@ -78,6 +91,8 @@ def main() -> None:
     parser.add_argument("--repo-dir", type=Path, default=DEFAULT_REPO_DIR)
     args = parser.parse_args()
 
+    excluded_folders, overlap_overrides = load_known_issues()
+
     sync_repo(args.repo_dir)
     episode_dirs = sorted((args.repo_dir / "episodes").iterdir())
     episode_dirs = episode_dirs[args.start :]
@@ -92,6 +107,11 @@ def main() -> None:
     total_chunks = 0
 
     for episode_dir in episode_dirs:
+        if episode_dir.name in excluded_folders:
+            print(f"SKIP {episode_dir.name}: known issue -- {excluded_folders[episode_dir.name]}")
+            skipped += 1
+            continue
+
         transcript_path = episode_dir / "transcript.md"
         if not transcript_path.exists():
             continue
@@ -103,8 +123,9 @@ def main() -> None:
 
         meta = post.metadata
         video_id = meta["video_id"]
+        overlap_pct = overlap_overrides.get(episode_dir.name, args.overlap_pct)
         blocks = parse_transcript(post.content)
-        chunks = group_into_chunks(blocks, overlap_pct=args.overlap_pct)
+        chunks = group_into_chunks(blocks, overlap_pct=overlap_pct)
 
         if not chunks:
             print(f"SKIP {episode_dir.name}: no parseable transcript blocks")
@@ -115,7 +136,7 @@ def main() -> None:
 
         with conn.cursor() as cur:
             for idx, (chunk, vector) in enumerate(zip(chunks, vectors)):
-                chunk_id = f"{video_id}:ov{args.overlap_pct}:{idx:04d}"
+                chunk_id = f"{video_id}:ov{overlap_pct}:{idx:04d}"
                 cur.execute(
                     UPSERT_SQL,
                     (

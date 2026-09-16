@@ -1,0 +1,29 @@
+{
+  "_comment": "Source-data defects found during issue #3 QA reconciliation (see _docs/plan.md section 5). Read by ingest.py at the start of every run so a future ingestion pass can't silently reintroduce these -- do not rely on operator memory.",
+  "excluded_folders": {
+    "alexander-embiricos": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the nilan-peiris episode -- citation not verifiable",
+    "interview-q-compilation": "guest/title/speaker-line mismatch: transcript body is a real, distinct compilation episode but title/video_id/description were copy-pasted from the andrew-wilkinson episode -- citation not verifiable",
+    "manik-gupta": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the anneka-gupta episode -- citation not verifiable",
+    "archie-abrams": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the matt-abrahams episode -- citation not verifiable",
+    "benjamin-mann": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the benjamin-lauzier episode -- citation not verifiable",
+    "gibson-biddle": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the bob-baxley episode -- citation not verifiable",
+    "brandon-chu": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the sander-schulhoff episode -- citation not verifiable",
+    "chip-conley": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the maggie-crowley episode -- citation not verifiable",
+    "jackie-bavaro": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the claire-vo episode -- citation not verifiable",
+    "david-placek": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the david-singleton episode -- citation not verifiable",
+    "gaurav-misra": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the lauryn-isford episode -- citation not verifiable",
+    "julian-shapiro": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the julie-zhuo episode -- citation not verifiable",
+    "kim-scott": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the scott-wu episode -- citation not verifiable",
+    "laura-modi": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the laura-schaffer episode -- citation not verifiable",
+    "ray-cao": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the marty-cagan episode -- citation not verifiable",
+    "matt-mullenweg": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the matt-lemay episode -- citation not verifiable",
+    "nikita-bier": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the nikita-miller episode -- citation not verifiable",
+    "ryan-hoover": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the ryan-singer episode -- citation not verifiable",
+    "sanchan-saxena": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview (about Sanchan Saxena) but title/video_id/description belong to an unrelated 'Sachin Kansal' episode -- no correctly-named sibling folder exists to fall back on, citation not verifiable",
+    "melissa": "guest/title/speaker-line mismatch: frontmatter guest field 'Melissa' is dangerously generic (matches 'Melissa Tan' in the title by substring), but the transcript body's opening speaker line is 'Melissa Perri' -- a different real person, citation not verifiable"
+  },
+  "overlap_overrides": {
+    "elena-verna-20": 0.15,
+    "jake-knapp-john-zeratsky": 0.15
+  }
+}
