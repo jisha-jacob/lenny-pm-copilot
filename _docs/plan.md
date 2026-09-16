@@ -173,7 +173,7 @@ full ~91-minute episode):**
 | Vector DB | Postgres 16 + `pgvector` extension, self-managed on GCE `e2-micro` (Always Free) | Consolidates vectors + monitoring into one DB, no separate hosting cost |
 | Vector index | None for v1 — exact (brute-force) search | Corpus is small (~5–8K chunks from 303 episodes); exact search answers top-k queries in well under 100ms at this scale and avoids HNSW/IVFFlat build-memory pressure on the 1GB VM. Revisit only if the corpus grows substantially. |
 | Retrieval | Top-k plain vector similarity (k=5–8, tune during QA) via `pgvector` `<->` distance | Simplest working v1; leaves room for hybrid later |
-| Answer LLM | Claude (Anthropic API) | Matches Claude Code tooling already in use |
+| Answer LLM | OpenAI (`gpt-4o-mini`) | Account already available |
 | Citation format | Sources list at end of answer: guest, episode title, link | Decided — not inline |
 | Frontend | Streamlit | Decided |
 | App hosting | Streamlit Community Cloud (free), connecting to Postgres on the VM over the network | Keeps the 1GB-RAM VM dedicated to Postgres only; avoids RAM contention with the embedding model and Streamlit process |
