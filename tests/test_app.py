@@ -22,6 +22,16 @@ SAMPLE_CHUNK = {
 }
 
 
+def _stub_log_interaction(monkeypatch, interaction_id=99):
+    calls = []
+    monkeypatch.setattr(
+        app.monitoring,
+        "log_interaction",
+        lambda **kwargs: calls.append(kwargs) or interaction_id,
+    )
+    return calls
+
+
 def test_answer_question_composes_retrieve_generate_and_render(monkeypatch):
     monkeypatch.setattr(app.retrieval, "retrieve", lambda q: [SAMPLE_CHUNK])
     monkeypatch.setattr(
@@ -34,12 +44,14 @@ def test_answer_question_composes_retrieve_generate_and_render(monkeypatch):
         "render_sources",
         lambda cited: [{"guest": "Shreyas Doshi", "title": "T", "url": "https://x"}],
     )
+    _stub_log_interaction(monkeypatch, interaction_id=7)
 
     result = app.answer_question("How does Shreyas think about prioritization?")
 
     assert result == {
         "answer": "Say no to good ideas.",
         "sources": [{"guest": "Shreyas Doshi", "title": "T", "url": "https://x"}],
+        "interaction_id": 7,
     }
 
 
@@ -51,10 +63,12 @@ def test_answer_question_returns_no_sources_when_nothing_cited(monkeypatch):
         lambda q, chunks: {"answer": app.answer.NOT_ENOUGH_INFO, "cited_chunks": []},
     )
     monkeypatch.setattr(app.sources, "render_sources", lambda cited: [])
+    _stub_log_interaction(monkeypatch)
 
     result = app.answer_question("something unrelated")
 
-    assert result == {"answer": app.answer.NOT_ENOUGH_INFO, "sources": []}
+    assert result["answer"] == app.answer.NOT_ENOUGH_INFO
+    assert result["sources"] == []
 
 
 def test_answer_question_returns_fallback_without_generating_when_not_relevant(monkeypatch):
@@ -64,11 +78,20 @@ def test_answer_question_returns_fallback_without_generating_when_not_relevant(m
     monkeypatch.setattr(
         app.answer, "generate_answer", lambda q, chunks: calls.append((q, chunks))
     )
+    log_calls = _stub_log_interaction(monkeypatch, interaction_id=5)
 
     result = app.answer_question("something off-topic")
 
-    assert result == {"answer": app.answer.NOT_ENOUGH_INFO, "sources": []}
+    assert result["answer"] == app.answer.NOT_ENOUGH_INFO
+    assert result["sources"] == []
+    assert result["interaction_id"] == 5
     assert calls == []  # generate_answer never called
+
+    assert len(log_calls) == 1
+    assert log_calls[0]["question"] == "something off-topic"
+    assert log_calls[0]["answer"] == app.answer.NOT_ENOUGH_INFO
+    assert log_calls[0]["cited_episodes"] == []
+    assert log_calls[0]["generation_latency_ms"] == 0.0
 
 
 def test_answer_question_still_generates_when_relevant(monkeypatch):
@@ -80,10 +103,40 @@ def test_answer_question_still_generates_when_relevant(monkeypatch):
         lambda q, chunks: {"answer": "Say no to good ideas.", "cited_chunks": chunks},
     )
     monkeypatch.setattr(app.sources, "render_sources", lambda cited: [])
+    _stub_log_interaction(monkeypatch)
 
     result = app.answer_question("How does Shreyas think about prioritization?")
 
     assert result["answer"] == "Say no to good ideas."
+
+
+def test_answer_question_logs_interaction_with_latencies_and_sources(monkeypatch):
+    monkeypatch.setattr(app.retrieval, "retrieve", lambda q: [SAMPLE_CHUNK])
+    monkeypatch.setattr(app.relevance, "is_relevant", lambda chunks: True)
+    monkeypatch.setattr(
+        app.answer,
+        "generate_answer",
+        lambda q, chunks: {"answer": "Say no to good ideas.", "cited_chunks": chunks},
+    )
+    monkeypatch.setattr(
+        app.sources,
+        "render_sources",
+        lambda cited: [{"guest": "Shreyas Doshi", "title": "T", "url": "https://x"}],
+    )
+    log_calls = _stub_log_interaction(monkeypatch, interaction_id=123)
+
+    result = app.answer_question("How does Shreyas think about prioritization?")
+
+    assert result["interaction_id"] == 123
+    assert len(log_calls) == 1
+    kwargs = log_calls[0]
+    assert kwargs["question"] == "How does Shreyas think about prioritization?"
+    assert kwargs["answer"] == "Say no to good ideas."
+    assert kwargs["cited_episodes"] == [
+        {"guest": "Shreyas Doshi", "title": "T", "url": "https://x"}
+    ]
+    assert kwargs["retrieval_latency_ms"] >= 0
+    assert kwargs["generation_latency_ms"] >= 0
 
 
 def test_answer_question_raises_on_empty_question_without_calling_pipeline(monkeypatch):
@@ -92,13 +145,16 @@ def test_answer_question_raises_on_empty_question_without_calling_pipeline(monke
     monkeypatch.setattr(
         app.answer, "generate_answer", lambda q, chunks: calls.append((q, chunks))
     )
+    monkeypatch.setattr(
+        app.monitoring, "log_interaction", lambda **kwargs: calls.append(kwargs)
+    )
 
     with pytest.raises(ValueError):
         app.answer_question("")
     with pytest.raises(ValueError):
         app.answer_question("   ")
 
-    assert calls == []  # retrieve and generate_answer never called
+    assert calls == []  # retrieve, generate_answer, and log_interaction never called
 
 
 def test_answer_question_passes_question_and_chunks_through(monkeypatch):
@@ -115,6 +171,7 @@ def test_answer_question_passes_question_and_chunks_through(monkeypatch):
     monkeypatch.setattr(app.retrieval, "retrieve", fake_retrieve)
     monkeypatch.setattr(app.answer, "generate_answer", fake_generate_answer)
     monkeypatch.setattr(app.sources, "render_sources", lambda cited: [])
+    _stub_log_interaction(monkeypatch)
 
     app.answer_question("a real question")
 
