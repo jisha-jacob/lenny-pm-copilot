@@ -2,6 +2,7 @@ import streamlit as st
 
 import retrieval
 import answer
+import relevance
 import sources
 
 st.title("Lenny's PM Copilot")
@@ -18,6 +19,9 @@ def answer_question(question: str) -> dict:
         raise ValueError("question must not be empty")
 
     chunks = retrieval.retrieve(question)
+    if not relevance.is_relevant(chunks):
+        return {"answer": answer.NOT_ENOUGH_INFO, "sources": []}
+
     result = answer.generate_answer(question, chunks)
     return {
         "answer": result["answer"],

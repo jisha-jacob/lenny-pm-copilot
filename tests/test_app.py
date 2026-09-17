@@ -57,6 +57,35 @@ def test_answer_question_returns_no_sources_when_nothing_cited(monkeypatch):
     assert result == {"answer": app.answer.NOT_ENOUGH_INFO, "sources": []}
 
 
+def test_answer_question_returns_fallback_without_generating_when_not_relevant(monkeypatch):
+    calls = []
+    monkeypatch.setattr(app.retrieval, "retrieve", lambda q: [SAMPLE_CHUNK])
+    monkeypatch.setattr(app.relevance, "is_relevant", lambda chunks: False)
+    monkeypatch.setattr(
+        app.answer, "generate_answer", lambda q, chunks: calls.append((q, chunks))
+    )
+
+    result = app.answer_question("something off-topic")
+
+    assert result == {"answer": app.answer.NOT_ENOUGH_INFO, "sources": []}
+    assert calls == []  # generate_answer never called
+
+
+def test_answer_question_still_generates_when_relevant(monkeypatch):
+    monkeypatch.setattr(app.retrieval, "retrieve", lambda q: [SAMPLE_CHUNK])
+    monkeypatch.setattr(app.relevance, "is_relevant", lambda chunks: True)
+    monkeypatch.setattr(
+        app.answer,
+        "generate_answer",
+        lambda q, chunks: {"answer": "Say no to good ideas.", "cited_chunks": chunks},
+    )
+    monkeypatch.setattr(app.sources, "render_sources", lambda cited: [])
+
+    result = app.answer_question("How does Shreyas think about prioritization?")
+
+    assert result["answer"] == "Say no to good ideas."
+
+
 def test_answer_question_raises_on_empty_question_without_calling_pipeline(monkeypatch):
     calls = []
     monkeypatch.setattr(app.retrieval, "retrieve", lambda q: calls.append(q))
