@@ -1,5 +1,7 @@
 # Lenny's PM Copilot
 
+**Live demo:** https://lenny-pm-copilot.streamlit.app
+
 A RAG-based chat app that answers product management questions by
 retrieving and synthesizing relevant passages from Lenny's Podcast
 transcripts. See [`_docs/plan.md`](_docs/plan.md) for the full spec.
