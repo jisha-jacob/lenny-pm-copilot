@@ -237,7 +237,7 @@ Added per the LLM Zoomcamp evaluation rubric's "Monitoring" criterion
 3. Ingestion script — parse `episodes/*/transcript.md`, chunk, embed, store
    in Postgres via `pgvector`
 4. Retrieval function — query → top-k chunks via `pgvector` distance search
-5. Answer generation — chunks + question → Claude API → answer
+5. Answer generation — chunks + question → OpenAI API (gpt-4o-mini) → answer
 6. Sources rendering — dedupe chunks by episode, render guest/title/link
 7. Streamlit chat UI — input box, answer display, sources section
 8. Golden-set eval script — run golden questions, report retrieval hit-rate
@@ -324,7 +324,7 @@ hosting cost.
 - **Cost:** $0 — GCE `e2-micro` and Postgres are inside the Always Free
   tier limits (1 non-preemptible `e2-micro` per month in eligible US
   regions, 30 GB standard persistent disk); Streamlit Community Cloud is
-  free for public apps. Only ongoing cost is Claude API usage per query.
+  free for public apps. Only ongoing cost is OpenAI API (gpt-4o-mini) usage per query.
 - **Known trade-off:** `e2-micro` is a shared-core, 1 GB RAM instance —
   fine for a portfolio-scale demo with light traffic, but not sized for
   production load. Worth stating explicitly in the README so reviewers
@@ -340,4 +340,4 @@ hosting cost.
 - The app can also be run fully locally (Postgres via Docker or a local
   install) for development; the Always Free VM is only for the deployed
   portfolio demo.
-- No paid infrastructure required except Claude API usage per query.
+- No paid infrastructure required except OpenAI API (gpt-4o-mini) usage per query.

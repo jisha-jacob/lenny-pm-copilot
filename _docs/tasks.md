@@ -47,8 +47,8 @@ function has no UI — it takes a string and returns a list of chunk records.
 ## 5. Answer generation
 Goal: A function that turns retrieved chunks + a question into a grounded answer.
 Description: Write a function that takes a user question and a list of
-retrieved transcript chunks (from task 4) and calls the Claude API
-(Anthropic) to produce an answer. The prompt must instruct the model to
+retrieved transcript chunks (from task 4) and calls the OpenAI API
+(gpt-4o-mini) to produce an answer. The prompt must instruct the model to
 answer only using the provided chunks, not general knowledge. Return the
 answer text along with which chunks were actually used/cited, since that
 list feeds the sources display in task 6.
