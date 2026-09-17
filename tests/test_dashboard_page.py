@@ -2,6 +2,7 @@ import importlib
 import sys
 
 import dashboard
+import db
 
 
 def test_monitoring_page_imports_cleanly(monkeypatch):
@@ -22,3 +23,14 @@ def test_monitoring_page_imports_cleanly(monkeypatch):
     sys.modules.pop("pages.Monitoring", None)
     sys.modules.pop("pages", None)
     importlib.import_module("pages.Monitoring")
+
+
+def test_monitoring_page_handles_database_unavailable_without_crashing(monkeypatch):
+    def fake_fetch_dashboard_data():
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(dashboard, "fetch_dashboard_data", fake_fetch_dashboard_data)
+
+    sys.modules.pop("pages.Monitoring", None)
+    sys.modules.pop("pages", None)
+    importlib.import_module("pages.Monitoring")  # must not raise

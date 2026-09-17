@@ -108,6 +108,19 @@ def avg_latency_by_day() -> list[dict]:
     ]
 
 
+def fetch_dashboard_data() -> dict:
+    """Run every query the Monitoring page needs and return them together,
+    so the page can catch a single db.DatabaseUnavailableError instead of
+    one per query (issue #14)."""
+    return {
+        "volume_by_day": query_volume_by_day(),
+        "feedback_ratio": feedback_ratio(),
+        "top_cited_episodes": top_cited_episodes(),
+        "avg_latency_by_day": avg_latency_by_day(),
+        "zero_source_question_count": zero_source_question_count(),
+    }
+
+
 def zero_source_question_count() -> int:
     """Count of interactions whose cited_episodes is an empty list --
     potential gaps in the knowledge base."""

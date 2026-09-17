@@ -1,5 +1,6 @@
 import pytest
 
+import db
 import retrieval
 
 
@@ -114,3 +115,15 @@ def test_retrieve_returns_empty_list_when_no_rows(monkeypatch):
     _patch_db(monkeypatch, rows=[])
 
     assert retrieval.retrieve("anything") == []
+
+
+def test_retrieve_propagates_database_unavailable_error(monkeypatch):
+    monkeypatch.setattr(retrieval, "embed_query", lambda q: [0.1, 0.2, 0.3])
+
+    def fake_get_connection():
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(retrieval.db, "get_connection", fake_get_connection)
+
+    with pytest.raises(db.DatabaseUnavailableError):
+        retrieval.retrieve("some question")

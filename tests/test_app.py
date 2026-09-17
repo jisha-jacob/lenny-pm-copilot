@@ -3,6 +3,7 @@ import importlib
 import pytest
 
 import app
+import db
 
 
 def test_app_imports_cleanly():
@@ -177,3 +178,59 @@ def test_answer_question_passes_question_and_chunks_through(monkeypatch):
 
     assert calls["q"] == "a real question"
     assert calls["chunks"] == [SAMPLE_CHUNK]
+
+
+def test_answer_question_propagates_database_unavailable_error_from_retrieval(monkeypatch):
+    def fake_retrieve(q):
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(app.retrieval, "retrieve", fake_retrieve)
+
+    with pytest.raises(db.DatabaseUnavailableError):
+        app.answer_question("How does Shreyas think about prioritization?")
+
+
+def test_answer_question_still_returns_answer_when_logging_fails(monkeypatch):
+    monkeypatch.setattr(app.retrieval, "retrieve", lambda q: [SAMPLE_CHUNK])
+    monkeypatch.setattr(
+        app.answer,
+        "generate_answer",
+        lambda q, chunks: {"answer": "Say no to good ideas.", "cited_chunks": chunks},
+    )
+    monkeypatch.setattr(
+        app.sources,
+        "render_sources",
+        lambda cited: [{"guest": "Shreyas Doshi", "title": "T", "url": "https://x"}],
+    )
+
+    def fake_log_interaction(**kwargs):
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(app.monitoring, "log_interaction", fake_log_interaction)
+
+    result = app.answer_question("How does Shreyas think about prioritization?")
+
+    assert result["answer"] == "Say no to good ideas."
+    assert result["sources"] == [{"guest": "Shreyas Doshi", "title": "T", "url": "https://x"}]
+    assert result["interaction_id"] is None
+
+
+def test_submit_feedback_returns_true_on_success(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        app.monitoring,
+        "record_feedback",
+        lambda interaction_id, feedback: calls.append((interaction_id, feedback)),
+    )
+
+    assert app.submit_feedback(7, "up") is True
+    assert calls == [(7, "up")]
+
+
+def test_submit_feedback_returns_false_when_database_unavailable(monkeypatch):
+    def fake_record_feedback(interaction_id, feedback):
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(app.monitoring, "record_feedback", fake_record_feedback)
+
+    assert app.submit_feedback(7, "up") is False

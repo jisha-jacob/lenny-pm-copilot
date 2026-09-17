@@ -1,5 +1,6 @@
 import pytest
 
+import db
 import monitoring
 
 
@@ -102,3 +103,23 @@ def test_record_feedback_rejects_invalid_value(monkeypatch):
 
     with pytest.raises(ValueError):
         monitoring.record_feedback(42, "sideways")
+
+
+def test_log_interaction_propagates_database_unavailable_error(monkeypatch):
+    def fake_get_connection():
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(monitoring.db, "get_connection", fake_get_connection)
+
+    with pytest.raises(db.DatabaseUnavailableError):
+        monitoring.log_interaction("q", "a", [], 1.0, 2.0)
+
+
+def test_record_feedback_propagates_database_unavailable_error(monkeypatch):
+    def fake_get_connection():
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(monitoring.db, "get_connection", fake_get_connection)
+
+    with pytest.raises(db.DatabaseUnavailableError):
+        monitoring.record_feedback(42, "up")

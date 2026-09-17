@@ -1,4 +1,7 @@
+import pytest
+
 import dashboard
+import db
 
 
 class FakeCursor:
@@ -136,3 +139,41 @@ def test_zero_source_question_count_zero_when_empty_table(monkeypatch):
     _patch_db(monkeypatch, one=(0,))
 
     assert dashboard.zero_source_question_count() == 0
+
+
+def test_fetch_dashboard_data_aggregates_all_queries(monkeypatch):
+    monkeypatch.setattr(dashboard, "query_volume_by_day", lambda: [{"day": "2026-01-01", "count": 3}])
+    monkeypatch.setattr(dashboard, "feedback_ratio", lambda: {"up": 2, "down": 1})
+    monkeypatch.setattr(
+        dashboard,
+        "top_cited_episodes",
+        lambda limit=10: [{"guest": "A", "title": "T", "count": 2}],
+    )
+    monkeypatch.setattr(
+        dashboard,
+        "avg_latency_by_day",
+        lambda: [{"day": "2026-01-01", "avg_retrieval_ms": 10.0, "avg_generation_ms": 500.0}],
+    )
+    monkeypatch.setattr(dashboard, "zero_source_question_count", lambda: 1)
+
+    data = dashboard.fetch_dashboard_data()
+
+    assert data == {
+        "volume_by_day": [{"day": "2026-01-01", "count": 3}],
+        "feedback_ratio": {"up": 2, "down": 1},
+        "top_cited_episodes": [{"guest": "A", "title": "T", "count": 2}],
+        "avg_latency_by_day": [
+            {"day": "2026-01-01", "avg_retrieval_ms": 10.0, "avg_generation_ms": 500.0}
+        ],
+        "zero_source_question_count": 1,
+    }
+
+
+def test_fetch_dashboard_data_propagates_database_unavailable_error(monkeypatch):
+    def fake_get_connection():
+        raise db.DatabaseUnavailableError("could not connect to the database")
+
+    monkeypatch.setattr(dashboard.db, "get_connection", fake_get_connection)
+
+    with pytest.raises(db.DatabaseUnavailableError):
+        dashboard.fetch_dashboard_data()
