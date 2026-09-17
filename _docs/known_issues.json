@@ -20,7 +20,8 @@
     "nikita-bier": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the nikita-miller episode -- citation not verifiable",
     "ryan-hoover": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the ryan-singer episode -- citation not verifiable",
     "sanchan-saxena": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview (about Sanchan Saxena) but title/video_id/description belong to an unrelated 'Sachin Kansal' episode -- no correctly-named sibling folder exists to fall back on, citation not verifiable",
-    "melissa": "guest/title/speaker-line mismatch: frontmatter guest field 'Melissa' is dangerously generic (matches 'Melissa Tan' in the title by substring), but the transcript body's opening speaker line is 'Melissa Perri' -- a different real person, citation not verifiable"
+    "melissa": "guest/title/speaker-line mismatch: frontmatter guest field 'Melissa' is dangerously generic (matches 'Melissa Tan' in the title by substring), but the transcript body's opening speaker line is 'Melissa Perri' -- a different real person, citation not verifiable",
+    "adriel-frederick": "no per-turn timestamps in transcript body -- parser cannot extract chunks (see issue #17; frontmatter itself is correct, unlike the other entries above -- this is a structural gap, not a corruption)"
   },
   "overlap_overrides": {
     "elena-verna-20": 0.15,

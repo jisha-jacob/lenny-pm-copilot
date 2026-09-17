@@ -159,6 +159,25 @@ full ~91-minute episode):**
     silently collapsed. Only one side survives ingestion (`chunk_id`
     collision), which is fine here since the losing side has nothing
     unique to lose.
+  - **Permanent parser gap: `adriel-frederick` has no per-turn
+    timestamps.** Discovered via issue #17. Unlike the corrupted-
+    frontmatter folders above, this folder's frontmatter is correct — the
+    transcript *body* itself never includes a `(TIMESTAMP):` marker on any
+    speaker line (just bare `Speaker Name:`), so `chunking.py`'s parser
+    (which every other episode in the corpus satisfies, via either
+    `HH:MM:SS` or `MM:SS`) correctly extracts zero blocks. Re-checked live
+    against all 303 locally cached transcripts while grooming #17:
+    `adriel-frederick` is the only episode with this shape (`ryan-hoover`
+    also parses to zero blocks but is moot — already excluded above for
+    corrupted frontmatter). Excluded in `_docs/known_issues.json` rather
+    than special-cased in the parser, since fixing it properly means
+    making `chunks.start_timestamp` nullable (a schema change) and
+    threading `None` through parsing/chunking for this one episode —
+    `sources.py`'s `_anchored_url()` already handles a `None` timestamp by
+    falling back to the plain URL, so the display layer is ready for
+    this, but the storage layer isn't. Deferred to a follow-up issue
+    rather than done as part of #17, since it isn't required for v1 and
+    touches the schema; #17 closed with the exclusion only.
 
 ## 6. RAG architecture decisions
 
