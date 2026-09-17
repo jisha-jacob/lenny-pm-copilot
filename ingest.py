@@ -45,15 +45,22 @@ UPSERT_SQL = """
 """
 
 
-def load_known_issues(path: Path = KNOWN_ISSUES_PATH) -> tuple[dict[str, str], dict[str, float]]:
-    """Folder-name exclusions and per-folder overlap-pct overrides found
-    during issue #3 QA (see _docs/plan.md section 5) -- checked into git so
-    a future run can't silently reintroduce a bug already found and fixed.
+def load_known_issues(
+    path: Path = KNOWN_ISSUES_PATH,
+) -> tuple[dict[str, str], dict[str, float], dict[str, dict]]:
+    """Folder-name exclusions, per-folder overlap-pct overrides, and
+    per-folder frontmatter metadata overrides found during issue #3 QA and
+    issue #18 (see _docs/plan.md section 5) -- checked into git so a
+    future run can't silently reintroduce a bug already found and fixed.
     """
     if not path.exists():
-        return {}, {}
+        return {}, {}, {}
     data = json.loads(path.read_text(encoding="utf-8"))
-    return data.get("excluded_folders", {}), data.get("overlap_overrides", {})
+    return (
+        data.get("excluded_folders", {}),
+        data.get("overlap_overrides", {}),
+        data.get("metadata_overrides", {}),
+    )
 
 
 def sync_repo(repo_dir: Path) -> None:
@@ -66,8 +73,10 @@ def sync_repo(repo_dir: Path) -> None:
         )
 
 
-def load_episode(path: Path):
+def load_episode(path: Path, metadata_overrides: dict | None = None):
     post = frontmatter.load(path)
+    if metadata_overrides:
+        post.metadata.update(metadata_overrides)
     missing = [f for f in REQUIRED_FIELDS if not post.metadata.get(f)]
     if missing:
         print(f"SKIP {path}: missing required frontmatter field(s) {missing}")
@@ -99,7 +108,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    excluded_folders, overlap_overrides = load_known_issues()
+    excluded_folders, overlap_overrides, metadata_overrides = load_known_issues()
 
     sync_repo(args.repo_dir)
     episode_dirs = sorted((args.repo_dir / "episodes").iterdir())
@@ -124,7 +133,7 @@ def main() -> None:
         if not transcript_path.exists():
             continue
 
-        post = load_episode(transcript_path)
+        post = load_episode(transcript_path, metadata_overrides.get(episode_dir.name))
         if post is None:
             skipped += 1
             continue

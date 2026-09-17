@@ -178,6 +178,35 @@ full ~91-minute episode):**
     this, but the storage layer isn't. Deferred to a follow-up issue
     rather than done as part of #17, since it isn't required for v1 and
     touches the schema; #17 closed with the exclusion only.
+- **Missing `video_id`/`youtube_url`/`publish_date` for 3 episodes
+  (issue #18).** Distinct from the corrupted-frontmatter case above: these
+  3 folders' frontmatter isn't wrong, it's incomplete.
+  - `peter-deng` and `daniel-lereya`: `youtube_url`, `video_id`,
+    `description` were empty strings and `publish_date` was absent
+    entirely (both are recent, real 2025 episodes — looks like an
+    archival gap for not-yet-backfilled metadata, not corruption).
+    Recovered via `_docs/known_issues.json`'s new `metadata_overrides`
+    (applied by `ingest.py`'s `load_episode()` before the required-field
+    check): real `video_id`/`youtube_url`/`publish_date`/`title` found
+    and verified before trusting them for citations. Verification method:
+    YouTube's `oEmbed` API (authoritative, not a search snippet) confirmed
+    the exact episode title and `Lenny's Podcast` channel for each
+    candidate video ID; that title independently matched Lenny's own
+    newsletter post title word-for-word; and each transcript's own intro
+    monologue contains multi-fact, guest-specific claims (career history,
+    specific numbers) that independently-sourced information about the
+    real guest and episode corroborates. Caveat: YouTube's actual
+    description text is JS-rendered and wasn't directly fetchable, so
+    this isn't a literal description-to-transcript diff the way #3's
+    original cross-checks were — it's the strongest verification
+    available with the tools on hand, not an identical bar.
+  - `nickey-skarstad`: frontmatter has no `youtube_url`/`video_id` fields
+    at all (not even empty) — instead `spotify_url`/`spotify_id`, a
+    structurally different metadata shape the rest of the corpus doesn't
+    use. No confident YouTube match found. Excluded in
+    `known_issues.json`'s `excluded_folders` rather than guessed at;
+    recovering it (finding her real video_id, or adding Spotify-based
+    citation support) is tracked as a separate low-priority follow-up.
 
 ## 6. RAG architecture decisions
 

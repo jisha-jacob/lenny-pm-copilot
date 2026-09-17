@@ -21,10 +21,26 @@
     "ryan-hoover": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview but title/video_id/description were copy-pasted from the ryan-singer episode -- citation not verifiable",
     "sanchan-saxena": "guest/title/speaker-line mismatch: transcript body is a real, distinct interview (about Sanchan Saxena) but title/video_id/description belong to an unrelated 'Sachin Kansal' episode -- no correctly-named sibling folder exists to fall back on, citation not verifiable",
     "melissa": "guest/title/speaker-line mismatch: frontmatter guest field 'Melissa' is dangerously generic (matches 'Melissa Tan' in the title by substring), but the transcript body's opening speaker line is 'Melissa Perri' -- a different real person, citation not verifiable",
-    "adriel-frederick": "no per-turn timestamps in transcript body -- parser cannot extract chunks (see issue #17; frontmatter itself is correct, unlike the other entries above -- this is a structural gap, not a corruption)"
+    "adriel-frederick": "no per-turn timestamps in transcript body -- parser cannot extract chunks (see issue #17; frontmatter itself is correct, unlike the other entries above -- this is a structural gap, not a corruption)",
+    "nickey-skarstad": "Spotify-only frontmatter (spotify_url/spotify_id), no youtube_url/video_id fields at all -- out of scope for a YouTube-citation-based app (see issue #18). Not a corruption: this episode's own frontmatter never had YouTube fields to begin with."
   },
   "overlap_overrides": {
     "elena-verna-20": 0.15,
     "jake-knapp-john-zeratsky": 0.15
+  },
+  "metadata_overrides": {
+    "_comment": "Per-folder frontmatter field overrides for episodes whose real video_id/youtube_url/publish_date were missing from the source repo entirely (empty strings, not corrupted -- distinct from excluded_folders above). Applied on top of the loaded frontmatter before the required-field check in ingest.py's load_episode(). Found and verified during issue #18 -- see _docs/plan.md section 5 for the verification method and its limits.",
+    "peter-deng": {
+      "youtube_url": "https://www.youtube.com/watch?v=8TpakBfsmcQ",
+      "video_id": "8TpakBfsmcQ",
+      "publish_date": "2025-06-22",
+      "title": "From ChatGPT to Instagram to Uber: The quiet architect behind the world's most popular products | Peter Deng"
+    },
+    "daniel-lereya": {
+      "youtube_url": "https://www.youtube.com/watch?v=L9qqwV8_rvY",
+      "video_id": "L9qqwV8_rvY",
+      "publish_date": "2025-04-27",
+      "title": "Inside monday.com's transformation: Radical transparency, impact over output, & the path to $1B ARR | Daniel Lereya (Chief Product and Technology Officer)"
+    }
   }
 }
