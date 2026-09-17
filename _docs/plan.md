@@ -341,6 +341,24 @@ hosting cost.
     investigation first (see the follow-up issue filed for that). Don't
     read this section as "access is restricted" until that follow-up
     lands.
+  - **Update from issue #15's investigation:** `pm_playbook` (the other
+    project sharing this VM) is confirmed to be the same owner's other
+    project, also on Streamlit Community Cloud — so it very likely draws
+    from the same platform-wide published IP pool already recorded in
+    `allow-postgres-lenny-pm-copilot`, not an unpredictable range.
+    Proposed (not yet applied): drop `allow-postgres` (`0.0.0.0/0`)
+    entirely and rely on the existing Streamlit-IP-scoped rule for both
+    projects — `pm_playbook` doesn't appear to need its own separate
+    rule, pending the owner's confirmation it has no other access path
+    (e.g. a script or second machine) that isn't in that IP list already.
+    Also confirmed live: `pg_hba.conf` is `hostssl`-only (no plain
+    `host`), so SSL + password auth has been the real backstop against
+    `allow-postgres`'s exposure this whole time — narrowing the firewall
+    is still worth doing (attack-surface reduction), just not "fixing an
+    unauthenticated database." New risk if applied: both projects' uptime
+    would then depend on Streamlit's IP list staying current (see the
+    maintenance note above), where today only this project does. Full
+    reasoning in issue #15.
   - Require SSL for the Postgres connection (`sslmode=require`) and use a
     strong password stored only in Streamlit Cloud's secrets manager
     (`st.secrets`), never committed to the repo.
