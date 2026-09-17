@@ -121,3 +121,54 @@ def test_main_skips_a_known_excluded_folder_and_processes_a_normal_one(
 
     # The normal episode must still have been processed.
     assert any("NORMALVIDEOID" in cid for cid in upserted_folders)
+
+
+def test_main_video_id_filter_only_ingests_matching_episodes(tmp_path, monkeypatch):
+    repo_dir = tmp_path / "repo"
+    episodes_dir = repo_dir / "episodes"
+    _write_episode(
+        episodes_dir / "episode-a", guest="A", title="A", video_id="VIDEOA"
+    )
+    _write_episode(
+        episodes_dir / "episode-b", guest="B", title="B", video_id="VIDEOB"
+    )
+
+    monkeypatch.setattr(ingest, "sync_repo", lambda repo_dir: None)
+    monkeypatch.setattr(
+        ingest, "embed_documents", lambda texts: [[0.0] * 768 for _ in texts]
+    )
+
+    upserted_video_ids = []
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def execute(self, sql, params):
+            upserted_video_ids.append(params[4])  # video_id column
+
+    class FakeConn:
+        def cursor(self):
+            return FakeCursor()
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ingest.db, "get_connection", lambda: FakeConn())
+    monkeypatch.setattr(ingest.db, "ensure_schema", lambda conn: None)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest.py", "--repo-dir", str(repo_dir), "--video-id", "VIDEOB"],
+    )
+
+    ingest.main()
+
+    assert upserted_video_ids == ["VIDEOB"]

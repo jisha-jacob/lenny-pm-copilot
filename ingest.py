@@ -89,6 +89,14 @@ def main() -> None:
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--repo-dir", type=Path, default=DEFAULT_REPO_DIR)
+    parser.add_argument(
+        "--video-id",
+        action="append",
+        default=None,
+        help="Only ingest episodes with this video_id (repeatable). Used by "
+        "eval_retrieval.py (issue #8) to ingest an overlap-comparison "
+        "variant of specific episodes without touching the rest.",
+    )
     args = parser.parse_args()
 
     excluded_folders, overlap_overrides = load_known_issues()
@@ -123,6 +131,8 @@ def main() -> None:
 
         meta = post.metadata
         video_id = meta["video_id"]
+        if args.video_id and video_id not in args.video_id:
+            continue
         overlap_pct = overlap_overrides.get(episode_dir.name, args.overlap_pct)
         blocks = parse_transcript(post.content)
         chunks = group_into_chunks(blocks, overlap_pct=overlap_pct)
