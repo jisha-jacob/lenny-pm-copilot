@@ -324,41 +324,39 @@ hosting cost.
   should use a small connection pool (e.g. 2–5 connections) rather than
   opening a new connection per session — on a shared-core, 1GB instance,
   connection sprawl is a more realistic failure mode than query load.
-- **Network security (important on a public VM) — currently NOT achieved,
-  see honest caveat below:**
-  - A GCE firewall rule (`allow-postgres-lenny-pm-copilot`) was added for
-    port 5432, scoped to Streamlit Community Cloud's published outbound IP
-    ranges plus the admin's own IP.
-  - **This does not actually restrict access.** The VM already has a
-    pre-existing rule (`allow-postgres`) allowing `0.0.0.0/0` on port 5432,
-    which this project's other database sits behind too. GCP firewall
-    allow-rules are additive/permissive — a narrower rule never overrides a
-    broader one. As long as `allow-postgres` (`0.0.0.0/0`) exists, **this
-    project's Postgres database is reachable from anywhere on the
-    internet**, not just from Streamlit/admin, regardless of the new rule.
-    Tightening or removing `allow-postgres` is out of scope for issue #2 —
-    it risks breaking the other project sharing this VM, and needs its own
-    investigation first (see the follow-up issue filed for that). Don't
-    read this section as "access is restricted" until that follow-up
-    lands.
-  - **Update from issue #15's investigation:** `pm_playbook` (the other
-    project sharing this VM) is confirmed to be the same owner's other
-    project, also on Streamlit Community Cloud — so it very likely draws
-    from the same platform-wide published IP pool already recorded in
-    `allow-postgres-lenny-pm-copilot`, not an unpredictable range.
-    Proposed (not yet applied): drop `allow-postgres` (`0.0.0.0/0`)
-    entirely and rely on the existing Streamlit-IP-scoped rule for both
-    projects — `pm_playbook` doesn't appear to need its own separate
-    rule, pending the owner's confirmation it has no other access path
-    (e.g. a script or second machine) that isn't in that IP list already.
-    Also confirmed live: `pg_hba.conf` is `hostssl`-only (no plain
-    `host`), so SSL + password auth has been the real backstop against
-    `allow-postgres`'s exposure this whole time — narrowing the firewall
-    is still worth doing (attack-surface reduction), just not "fixing an
-    unauthenticated database." New risk if applied: both projects' uptime
-    would then depend on Streamlit's IP list staying current (see the
-    maintenance note above), where today only this project does. Full
-    reasoning in issue #15.
+- **Network security (important on a public VM) — achieved as of issue
+  #15's resolution (2026-09-18):**
+  - A GCE firewall rule (`allow-postgres-lenny-pm-copilot`) scoped to
+    Streamlit Community Cloud's published outbound IP ranges plus the
+    admin's own IP is now the **only** rule gating port 5432 on this VM.
+  - **History:** the VM originally also had a pre-existing rule
+    (`allow-postgres`) allowing `0.0.0.0/0` on port 5432, added before this
+    project existed, which both this project's and `pm_playbook`'s
+    databases sat behind. GCP firewall allow-rules are additive, so that
+    rule alone made both databases reachable from the entire internet
+    regardless of the narrower rule. Investigated in issue #15 rather than
+    removed blindly, since `pm_playbook` is a live production dependency
+    for another project sharing this VM: confirmed `pm_playbook` is the
+    same owner's other project, also on Streamlit Community Cloud, so it
+    draws from the same platform-wide published IP pool already in
+    `allow-postgres-lenny-pm-copilot` (verified zero drift against
+    Streamlit's live docs at the time) — no separate rule was needed for
+    it. Also confirmed live that `pg_hba.conf` was already `hostssl`-only
+    (no plain `host`), so SSL + password auth had been the real backstop
+    against `allow-postgres`'s exposure the whole time; removing it is
+    attack-surface reduction, not "fixing an unauthenticated database."
+  - **Rollout:** `allow-postgres` was disabled (not deleted) first, both
+    apps live-tested by the owner, then left disabled for a ~24 hour soak
+    period before permanent deletion — confirmed via
+    `gcloud compute firewall-rules list` that only
+    `allow-postgres-lenny-pm-copilot` remains on port 5432. Full
+    investigation, proposal, and rollout history in issue #15.
+  - **New accepted risk:** both projects' uptime now depends on
+    Streamlit's published IP list staying current (see the maintenance
+    note above) — previously only this project did, since `pm_playbook`
+    was unconditionally covered by `allow-postgres`. If either app loses
+    DB connectivity with no other explanation, re-check Streamlit's
+    current IP list against the firewall rule first.
   - Require SSL for the Postgres connection (`sslmode=require`) and use a
     strong password stored only in Streamlit Cloud's secrets manager
     (`st.secrets`), never committed to the repo.
