@@ -406,3 +406,26 @@ hosting cost.
   install) for development; the Always Free VM is only for the deployed
   portfolio demo.
 - No paid infrastructure required except OpenAI API (gpt-4o-mini) usage per query.
+- **Issue #16 resolved (2026-09-18): `lenny_pm_copilot_app` can no longer
+  connect to `pm_playbook`.** Postgres grants `CONNECT` to `PUBLIC` by
+  default, so `lenny_pm_copilot_app` could open a connection to the other
+  project's database on this shared VM (table-level privileges already
+  blocked any actual data access — see issue #2 — so this was a
+  connection-scope gap, not a data-exposure bug). The issue's own proposed
+  fix, `REVOKE CONNECT ON DATABASE pm_playbook FROM lenny_pm_copilot_app;`,
+  was tried first and **did not work** — verified live that the connection
+  still succeeded afterward. Root cause: that role was never explicitly
+  granted `CONNECT`; its access flowed entirely through the default grant
+  to `PUBLIC`, and revoking from an individual role that never held an
+  explicit grant is a no-op. The correct fix, applied and verified:
+  ```sql
+  REVOKE CONNECT ON DATABASE pm_playbook FROM PUBLIC;
+  GRANT CONNECT ON DATABASE pm_playbook TO pm_playbook_app;
+  ```
+  The second line is required — revoking from `PUBLIC` removes the
+  default for every role, so `pm_playbook`'s own app role needs it back
+  explicitly or `pm_playbook` breaks. Confirmed via `pg_database.datacl`
+  and a live connection attempt that `lenny_pm_copilot_app` is now
+  refused (`permission denied for database "pm_playbook"`), while
+  `lenny_pm_copilot_app`'s own database access and `pm_playbook_app`'s
+  role attributes are both unchanged.
